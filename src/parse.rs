@@ -698,6 +698,7 @@ fn alt8<
 
 /// Комбинатор для применения дочернего парсера N раз
 /// (аналог `take` из `nom`)
+#[derive(Debug)]
 struct Take<T> {
     count: usize,
     parser: T,
@@ -939,29 +940,18 @@ impl Parsable for Announcements {
 
 // просто обёртки
 // подсказка: почему бы не заменить на один дженерик?
-/// Обёртка для парсинга [AssetDsc]
-pub fn just_parse_asset_dsc(input: &str) -> Result<(&str, AssetDsc), ()> {
-    <AssetDsc as Parsable>::parser().parse(input)
+
+/// Публичная обёртка трейта `Parsable`.
+///
+/// `Parsable` остаётся приватным
+pub trait Parse: Sized {
+    fn parse(input: &str) -> Result<(&str, Self), ()>;
 }
-/// Обёртка для парсинга [Backet]
-pub fn just_parse_backet(input: &str) -> Result<(&str, Backet), ()> {
-    <Backet as Parsable>::parser().parse(input)
-}
-/// Обёртка для парсинга [UserCash]
-pub fn just_user_cash(input: &str) -> Result<(&str, UserCash), ()> {
-    <UserCash as Parsable>::parser().parse(input)
-}
-/// Обёртка для парсинга [UserBacket]
-pub fn just_user_backet(input: &str) -> Result<(&str, UserBacket), ()> {
-    <UserBacket as Parsable>::parser().parse(input)
-}
-/// Обёртка для парсинга [UserBackets]
-pub fn just_user_backets(input: &str) -> Result<(&str, UserBackets), ()> {
-    <UserBackets as Parsable>::parser().parse(input)
-}
-/// Обёртка для парсинга [Announcements]
-pub fn just_parse_anouncements(input: &str) -> Result<(&str, Announcements), ()> {
-    <Announcements as Parsable>::parser().parse(input)
+
+impl<T: Parsable> Parse for T {
+    fn parse(input: &str) -> Result<(&str, Self), ()> {
+        T::parser().parse(input)
+    }
 }
 
 /// Все виды логов
@@ -1426,22 +1416,21 @@ impl Parsable for LogLine {
 }
 
 /// Парсер строки логов
+#[derive(Debug)]
 pub struct LogLineParser {
-    parser: std::sync::OnceLock<<LogLine as Parsable>::Parser>,
+    parser: <LogLine as Parsable>::Parser,
 }
 impl LogLineParser {
+    pub fn new() -> Self {
+        Self {
+            parser: <LogLine as Parsable>::parser(),
+        }
+    }
+
     pub fn parse<'a>(&self, input: &'a str) -> Result<(&'a str, LogLine), ()> {
-        self.parser
-            .get_or_init(|| <LogLine as Parsable>::parser())
-            .parse(input)
+        self.parser.parse(input)
     }
 }
-// подсказка: singleton, без которого можно обойтись
-// парсеры не страшно вытащить в pub
-/// Единожды собранный парсер логов
-pub static LOG_LINE_PARSER: LogLineParser = LogLineParser {
-    parser: std::sync::OnceLock::new(),
-};
 
 #[cfg(test)]
 mod test {
