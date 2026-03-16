@@ -85,11 +85,10 @@ fn quote(input: &str) -> String {
     result.extend(
         input
             .chars()
-            .map(|c| match c {
+            .flat_map(|c| match c {
                 '\\' | '"' => ['\\', c].into_iter().take(2),
                 _ => [c, ' '].into_iter().take(1),
-            })
-            .flatten(),
+            }),
     );
     result.push('"');
     result
@@ -1046,14 +1045,14 @@ impl Parsable for SystemLogErrorKind {
                         strip_whitespace(tag("NetworkError")),
                         strip_whitespace(unquote()),
                     ),
-                    |error| SystemLogErrorKind::NetworkError(error),
+                    SystemLogErrorKind::NetworkError,
                 ),
                 map(
                     preceded(
                         strip_whitespace(tag("AccessDenied")),
                         strip_whitespace(unquote()),
                     ),
-                    |error| SystemLogErrorKind::AccessDenied(error),
+                    SystemLogErrorKind::AccessDenied,
                 ),
             ),
         )
@@ -1082,14 +1081,14 @@ impl Parsable for SystemLogTraceKind {
                         strip_whitespace(tag("SendRequest")),
                         strip_whitespace(unquote()),
                     ),
-                    |request| SystemLogTraceKind::SendRequest(request),
+                    SystemLogTraceKind::SendRequest,
                 ),
                 map(
                     preceded(
                         strip_whitespace(tag("GetResponse")),
                         strip_whitespace(unquote()),
                     ),
-                    |response| SystemLogTraceKind::GetResponse(response),
+                    SystemLogTraceKind::GetResponse,
                 ),
             ),
         )
@@ -1145,14 +1144,14 @@ impl Parsable for AppLogErrorKind {
             alt2(
                 map(
                     preceded(strip_whitespace(tag("LackOf")), strip_whitespace(unquote())),
-                    |error| AppLogErrorKind::LackOf(error),
+                    AppLogErrorKind::LackOf,
                 ),
                 map(
                     preceded(
                         strip_whitespace(tag("SystemError")),
                         strip_whitespace(unquote()),
                     ),
-                    |error| AppLogErrorKind::SystemError(error),
+                    AppLogErrorKind::SystemError,
                 ),
             ),
         )
@@ -1199,21 +1198,21 @@ impl Parsable for AppLogTraceKind {
                         strip_whitespace(tag("SendRequest")),
                         strip_whitespace(unquote()),
                     ),
-                    |trace| AppLogTraceKind::SendRequest(trace),
+                    AppLogTraceKind::SendRequest,
                 ),
                 map(
                     preceded(
                         strip_whitespace(tag("Check")),
                         strip_whitespace(Announcements::parser()),
                     ),
-                    |announcements| AppLogTraceKind::Check(announcements),
+                    AppLogTraceKind::Check,
                 ),
                 map(
                     preceded(
                         strip_whitespace(tag("GetResponse")),
                         strip_whitespace(unquote()),
                     ),
-                    |trace| AppLogTraceKind::GetResponse(trace),
+                    AppLogTraceKind::GetResponse,
                 ),
             ),
         )
@@ -1333,19 +1332,19 @@ impl Parsable for AppLogJournalKind {
                 ),
                 map(
                     preceded(strip_whitespace(tag("DepositCash")), UserCash::parser()),
-                    |user_cash| AppLogJournalKind::DepositCash(user_cash),
+                    AppLogJournalKind::DepositCash,
                 ),
                 map(
                     preceded(strip_whitespace(tag("WithdrawCash")), UserCash::parser()),
-                    |user_cash| AppLogJournalKind::WithdrawCash(user_cash),
+                    AppLogJournalKind::WithdrawCash,
                 ),
                 map(
                     preceded(strip_whitespace(tag("BuyAsset")), UserBacket::parser()),
-                    |user_backet| AppLogJournalKind::BuyAsset(user_backet),
+                    AppLogJournalKind::BuyAsset,
                 ),
                 map(
                     preceded(strip_whitespace(tag("SellAsset")), UserBacket::parser()),
-                    |user_backet| AppLogJournalKind::SellAsset(user_backet),
+                    AppLogJournalKind::SellAsset,
                 ),
             ),
         )
@@ -1366,8 +1365,8 @@ impl Parsable for AppLogKind {
         strip_whitespace(preceded(
             tag("App::"),
             alt3(
-                map(AppLogErrorKind::parser(), |error| AppLogKind::Error(error)),
-                map(AppLogTraceKind::parser(), |trace| AppLogKind::Trace(trace)),
+                map(AppLogErrorKind::parser(), AppLogKind::Error),
+                map(AppLogTraceKind::parser(), AppLogKind::Trace),
                 map(AppLogJournalKind::parser(), |journal| {
                     AppLogKind::Journal(journal)
                 }),
@@ -1384,8 +1383,8 @@ impl Parsable for LogKind {
     >;
     fn parser() -> Self::Parser {
         strip_whitespace(alt2(
-            map(SystemLogKind::parser(), |system| LogKind::System(system)),
-            map(AppLogKind::parser(), |app| LogKind::App(app)),
+            map(SystemLogKind::parser(), LogKind::System),
+            map(AppLogKind::parser(), LogKind::App),
         ))
     }
 }
@@ -1419,6 +1418,12 @@ impl Parsable for LogLine {
 pub struct LogLineParser {
     parser: <LogLine as Parsable>::Parser,
 }
+impl Default for LogLineParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LogLineParser {
     pub fn new() -> Self {
         Self {
